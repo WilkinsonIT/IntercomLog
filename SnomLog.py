@@ -32,7 +32,37 @@ def BetweenHours(currentTime):
         return True
     else:
         return False
-          
+
+def SendMail(device,reason):
+            server = smtplib.SMTP(email_smtp_server,email_smtp_port)
+            server.starttls()
+            server.login(email_sender_username,email_sender_password)
+            
+            #for recipient in email_recipients:
+            print(f"Sending email")  
+            message = MIMEMultipart('alternative')
+            message['From'] = email_sender_account
+            message['To'] = email_recipients
+            message['Subject'] = email_subject
+
+            email_body = """<html>
+<head>
+  <title>Warning from SNOM {device}</title>
+</head>
+
+<body>
+  <h1>Snom {device} has reported a warning status</h1>
+  <p>Automated alert from SnomLogger</p>
+</body>
+
+</html>""".format(device=device)              
+        
+                        
+            message.attach(MIMEText(email_body, 'html'))
+            text = message.as_string()
+            server.sendmail(email_sender_account,email_recipients,text)
+            server.quit()
+        
 
 def CheckUp():
     #This thread will check every hour to see if a Snom has been inactive (Should atleast get a bell every hour)
@@ -52,34 +82,7 @@ def CheckUp():
             f.write("[X]SNOM DOWN " + key + " Did not report in two hours!\n")
             print("[X]SNOM DOWN " + key + " Did not report in two hours!")
             f.close()
-            server = smtplib.SMTP(email_smtp_server,email_smtp_port)
-            server.starttls()
-            server.login(email_sender_username,email_sender_password)
-            
-            for recipient in email_recipients:
-                print(f"Sending email to {recipient}")  
-                message = MIMEMultipart('alternative')
-                message['From'] = email_sender_account
-                message['To'] = recipient
-                message['Subject'] = email_subject
-
-                email_body = """<html>
-<head>
-  <title>Warning from SNOM {key}</title>
-</head>
-
-<body>
-  <h1>Snom {key} has reported a warning status</h1>
-  <p>Automated alert from SnomLogger</p>
-</body>
-
-</html>""".format(key=key)              
-        
-                        
-                message.attach(MIMEText(email_body, 'html'))
-                text = message.as_string()
-                server.sendmail(email_sender_account,recipient,text)
-                server.quit()    
+            SendMail(key,"Did not report")
         
         elif(BetweenHours == False):
             print("Not between hours waiting...")
@@ -100,21 +103,25 @@ def LogHandler(ActiveCalls,CallID,Reason):
             print("[X] Snom " + request.remote_addr + " Missed a call!")
             f = open(fname,"a+")
             f.write("[X] Snom " + request.remote_addr + " Missed a call!\n")
+            SendMail(request.remote_addr,"Missed Call")
             f.close()
         elif(Reason=="Hold"):
             print("[X] Snom " + request.remote_addr + " Missed a call: Hold!\n")
             f = open(fname,"a+")
             f.write("[X] Snom " + request.remote_addr + "Missed a call: Hold!\n")
+            SendMail(request.remote_addr,"On Hold")
             f.close()
         elif(Reason =="OnHook"):
             print("[X] Snom " + request.remote_addr + "Missed a call: OnHook\n")        
             f = open(fname,"a+")
             f.write("[X] Snom " + request.remote_addr + "Missed a call: OnHook\n")
             f.close()
+            SendMail(request.remote_addr,"On Hook")
         elif(Reason =="DND"):
             print("[X] Snom " + request.remote_addr + "Missed a call: DND On\n")
             f = open(fname,"a+")
             f.write("[X] Snom " + request.remote_addr + "Missed a call: DND On\n")
+            SendMail(request.remote_addr,"DND mode")
             f.close()
 
         print("Active Calls: ",ActiveCalls)
@@ -130,26 +137,7 @@ def LogHandler(ActiveCalls,CallID,Reason):
         schoolname = ""
         ctime = datetime.now()
         current_timestr = t.strftime("%H:%M:%S")
-        if(request.remote_addr == "10.48.30.5"):
-            schoolname = "FHS Relay Snom"
-        elif(request.remote_addr == "10.80.30.5"):
-            schoolname = "PJHS Relay Snom"
-        elif(request.remote_addr == "10.8.30.5"):
-            schoolname = "BHS Relay Snom"
-        elif(request.remote_addr == "10.16.30.5"):
-            schoolname = "CJHS Relay Snom"
-        elif(request.remote_addr == "10.32.30.5"):
-            schoolname = "DHS Relay Snom"
-        elif(request.remote_addr == "10.40.30.5"):
-            schoolname = "EJHS Relay Snom"
-        elif(request.remote_addr == "10.56.30.241"):
-            schoolname = "LSJHS Relay Snom"
-        elif(request.remote_addr == "10.88.30.5"):
-            schoolname = "SJHS Relay Snom"
-        elif(request.remote_addr == "10.96.30.5"):
-            schoolname = "UHJHS Relay Snom"
-        else:
-            schoolname = request.remote_addr
+        
 
         f.write(current_timestr + ": " + "Snom " + request.remote_addr + " " + "Called" + "\n")
         f.close()
@@ -179,6 +167,5 @@ def index():
 if __name__ == "__main__":
     statuscheck = threading.Thread(target=CheckUp)
     statuscheck.start()
-    TestEmail()
     app.run(host='172.27.66.107', port=62420, debug=False)
     
