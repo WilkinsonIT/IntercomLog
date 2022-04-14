@@ -143,7 +143,7 @@ def LogHandler(ActiveCalls,CallID,Reason):
         f.close()
 
         #Add the school and time of call to our dictionary to reference time between each call
-        SnomStatus[schoolname] = ctime
+        SnomStatus[request.remote_addr] = ctime
         
         print(ctime,":","Snom",request.remote_addr,"Event",str(Reason).capitalize())
         #print("Status for All Snoms Updated:")
